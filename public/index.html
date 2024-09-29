@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+
+<html>
+
+<head>
+    <meta charset="utf-8">
+    <title>OriginalFile Danmuku Web</title>
+</head>
+
+<body>
+    <div id="container">
+    </div>
+    <style>
+        @keyframes slideAnimation {
+            0% {
+                transform: translateX(100vw);
+            }
+
+            100% {
+                transform: translateX(-100%);
+            }
+        }
+
+        body {
+            background-color: transparent;
+            margin: 0px;
+            user-select: none;
+        }
+
+        #container {
+            /*测试时用的颜色，记得改回来*/
+            background-color: aqua;
+            display: grid;
+            grid-template-rows: repeat(10, 1fr);
+            width: 100vw;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        .slide {
+            color: white;
+        }
+    </style>
+    <script>
+        const danmakuServer = "localhost"
+        const group = (new URLSearchParams(window.location.search)).get("group")
+        const container = document.getElementById('container');
+        // 记得修改地址
+        const socket = new WebSocket(`ws://${danmakuServer}:5098/danmaku/${group}`);
+        console.log(socket.url)
+
+        // 弹幕会在屏幕上半部分（50%）显示
+        // 每条弹幕占屏幕高度10%，总计五个通道
+        // 新弹幕出现时，从上到下优先寻找5s内没有发送过消息的通道
+        // 如果都没有，找最早发送过弹幕的通道
+
+        const lastTime = [0, 0, 0, 0, 0]
+
+        const findChannel = () => {
+            // 找到符合条件的通道
+            let date = new Date();
+            for (let i = 0; i < 5; i++) {
+                if (date.getTime() - lastTime[i] > 5000) {
+                    lastTime[i] = date.getTime()
+                    return i
+                }
+            }
+            let target = lastTime.indexOf(Math.min(...lastTime))
+            lastTime[target] = date.getTime()
+            return target
+        }
+
+        const sendMessage = (message, font = "", color = "", speed = 1) => {
+            let tmp = document.createElement("div");
+
+            tmp.innerText = message;
+            tmp.className = "slide";
+
+            // 调整弹幕样式
+            tmp.style.animation = `slideAnimation ${10 / speed}s`
+            tmp.style.animationTimingFunction = "linear"
+            tmp.style.fontSize = '10vh'
+            tmp.style.gridRowStart = `${findChannel() + 1}`
+            tmp.style.gridColumnStart = "1"
+            container.appendChild(tmp)
+
+            // 额外参数样式
+            if (color !== "") {
+                tmp.style.color = color
+            }
+            if (font !== "") {
+                tmp.style.fontFamily = font
+            }
+
+            // 动画结束后删除
+            setTimeout(() => { tmp.remove() }, 10000 / speed)
+        }
+
+        socket.onopen = (event) => {
+            // console.log("WS Connection!")
+            sendMessage("WS Connection!")
+
+        }
+
+        // 监听 WebSocket 消息
+        socket.onmessage = (event) => {
+            /**
+             * 在这里处理发过来的消息
+             */
+            console.log(event)
+        };
+    </script>
+</body>
+
+</html>
