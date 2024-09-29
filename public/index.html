@@ -17,7 +17,7 @@
             }
 
             100% {
-                transform: translateX(-100%);
+                transform: translateX(-100vw);
             }
         }
 
@@ -28,9 +28,8 @@
         }
 
         #container {
-            /*测试时用的颜色，记得改回来*/
-            background-color: aqua;
             display: grid;
+            place-items: center;
             grid-template-rows: repeat(10, 1fr);
             width: 100vw;
             height: 100vh;
@@ -46,7 +45,8 @@
         const group = (new URLSearchParams(window.location.search)).get("group")
         const container = document.getElementById('container');
         // 记得修改地址
-        const socket = new WebSocket(`ws://${danmakuServer}:5098/danmaku/${group}`);
+        // const socket = new WebSocket(`ws://localhost:3000/ws`);
+        const socket = new WebSocket(`wss://dm.wybxc.cc/danmaku/${group}`);
         console.log(socket.url)
 
         // 弹幕会在屏幕上半部分（50%）显示
@@ -55,7 +55,7 @@
         // 如果都没有，找最早发送过弹幕的通道
 
         const lastTime = [0, 0, 0, 0, 0]
-
+        const sizeMap = { "large": "15vh", "medium": "10vh", "small": "5vh" }
         const findChannel = () => {
             // 找到符合条件的通道
             let date = new Date();
@@ -70,7 +70,7 @@
             return target
         }
 
-        const sendMessage = (message, font = "", color = "", speed = 1) => {
+        const sendMessage = (message, size = "", color = "", speed = 1) => {
             let tmp = document.createElement("div");
 
             tmp.innerText = message;
@@ -79,17 +79,14 @@
             // 调整弹幕样式
             tmp.style.animation = `slideAnimation ${10 / speed}s`
             tmp.style.animationTimingFunction = "linear"
-            tmp.style.fontSize = '10vh'
             tmp.style.gridRowStart = `${findChannel() + 1}`
+            tmp.style.fontSize = sizeMap[size] || "10vh"
             tmp.style.gridColumnStart = "1"
             container.appendChild(tmp)
 
             // 额外参数样式
             if (color !== "") {
                 tmp.style.color = color
-            }
-            if (font !== "") {
-                tmp.style.fontFamily = font
             }
 
             // 动画结束后删除
@@ -98,17 +95,32 @@
 
         socket.onopen = (event) => {
             // console.log("WS Connection!")
-            sendMessage("WS Connection!")
+            sendMessage("WS Connection!", "small", "red")
+            sendMessage("WS Connection!", "medium", "green") // default
+            // sendMessage("WS Connection!", "large", "blue")
 
         }
 
         // 监听 WebSocket 消息
         socket.onmessage = (event) => {
-            /**
-             * 在这里处理发过来的消息
-             */
+            let messageEvent = JSON.parse(event.data)
+            sendMessage(messageEvent.text, messageEvent.size, messageEvent.color)
             console.log(event)
         };
+
+        socket.onclose = (event) => {
+            sendMessage("WS Closed!")
+        }
+
+        socket.onerror = (event) => {
+            sendMessage("WS Error!")
+        }
+
+        (() => {
+            // 压力测试
+            // setInterval(() => { sendMessage("123456") }, 500)
+        })()
+
     </script>
 </body>
 
